@@ -16,19 +16,19 @@ public class UserService {
     @Autowired
     private UserRepository userRepository;
 
-    private UserDto createUser(UserDto userDto){
+    public UserDto createUser(UserDto userDto){
        User user=mapToEntity(userDto);
        User savedUser=userRepository.save(user);
        return mapToDto(savedUser);
     }
 
-    private UserDto getUserById(Long id){
+    public UserDto getUserById(Long id){
         User user=userRepository.findById(id)
                 .orElseThrow(()->new ResourceNotFoundException("User not found through this id: "+id));
         return mapToDto(user);
     }
 
-    private List<UserDto> getAllUsers(){
+    public List<UserDto> getAllUsers(){
         List<User>users=userRepository.findAll();
         return users.stream()
                 .map(this::mapToDto)
