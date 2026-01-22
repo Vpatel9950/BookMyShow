@@ -22,20 +22,20 @@ public class TheaterService {
         return mapToDto(savedTheater);
     }
 
-    private TheaterDto getTheaterById(Long id){
+    public TheaterDto getTheaterById(Long id){
         Theater theater=theaterRepository.findById(id)
                 .orElseThrow(()->new ResourceNotFoundException("Theater Not found through this Id: "+id));
         return mapToDto(theater);
     }
 
-    private List<TheaterDto> getAllTheaters(){
+    public List<TheaterDto> getAllTheaters(){
          List<Theater> theaters=theaterRepository.findAll();
          return theaters.stream()
                  .map(this::mapToDto)
                  .collect(Collectors.toList());
     }
 
-    private List<TheaterDto> getAllTheatersByCity(String city){
+    public List<TheaterDto> getAllTheatersByCity(String city){
         List<Theater> theaters=theaterRepository.findByCity(city);
         return theaters.stream()
                 .map(this::mapToDto)

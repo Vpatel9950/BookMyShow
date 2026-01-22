@@ -6,6 +6,7 @@ import com.Vishal.BookMyShow.model.Movie;
 import com.Vishal.BookMyShow.model.Screen;
 import com.Vishal.BookMyShow.model.Show;
 import com.Vishal.BookMyShow.model.ShowSeat;
+import com.Vishal.BookMyShow.model.enums.SeatStatus;
 import com.Vishal.BookMyShow.repository.MovieRepository;
 import com.Vishal.BookMyShow.repository.ScreenRepository;
 import com.Vishal.BookMyShow.repository.ShowRepository;
@@ -47,7 +48,7 @@ public class ShowService {
 
         Show savedShow=showRepository.save(show);
 
-        List<ShowSeat> availableSeats=showSeatRepository.findByShowIdAndStatus(savedShow.getId(),"AVAILABLE");
+        List<ShowSeat> availableSeats=showSeatRepository.findByShowIdAndStatus(savedShow.getId(), SeatStatus.valueOf("AVAILABLE"));
                 return mapToDto(savedShow,availableSeats);
     }
 
@@ -55,7 +56,7 @@ public class ShowService {
        Show show=showRepository.findById(id)
                .orElseThrow(()->new ResourceNotFoundException("Show not found with id: "+id));
        List<ShowSeat>availableSeats=
-               showSeatRepository.findByShowIdAndStatus(show.getId(),"AVAILABLE");
+               showSeatRepository.findByShowIdAndStatus(show.getId(), SeatStatus.AVAILABLE);
        return mapToDto(show,availableSeats);
     }
 
@@ -63,7 +64,7 @@ public class ShowService {
         List<Show> shows=showRepository.findAll();
         return shows.stream()
                 .map(show->{
-                    List<ShowSeat>availableSeats=showSeatRepository.findByShowIdAndStatus(show.getId(),"AVAILABLE");
+                    List<ShowSeat>availableSeats=showSeatRepository.findByShowIdAndStatus(show.getId(), SeatStatus.valueOf("AVAILABLE"));
                     return mapToDto(show,availableSeats);
                 })
                 .collect(Collectors.toList());
@@ -73,7 +74,7 @@ public class ShowService {
         List<Show> shows=showRepository.findByMovieId(movieId);
         return shows.stream()
                 .map(show->{
-                    List<ShowSeat>availableSeats=showSeatRepository.findByShowIdAndStatus(show.getId(),"AVAILABLE");
+                    List<ShowSeat>availableSeats=showSeatRepository.findByShowIdAndStatus(show.getId(), SeatStatus.valueOf("AVAILABLE"));
                     return mapToDto(show,availableSeats);
                 })
                 .collect(Collectors.toList());
@@ -83,7 +84,7 @@ public class ShowService {
         List<Show> shows=showRepository.findByMovie_IdAndScreen_Theater_City(movieId,city);
         return shows.stream()
                 .map(show->{
-                    List<ShowSeat>availableSeats=showSeatRepository.findByShowIdAndStatus(show.getId(),"AVAILABLE");
+                    List<ShowSeat>availableSeats=showSeatRepository.findByShowIdAndStatus(show.getId(), SeatStatus.valueOf("AVAILABLE"));
                     return mapToDto(show,availableSeats);
                 })
                 .collect(Collectors.toList());
@@ -93,7 +94,7 @@ public class ShowService {
         List<Show> shows=showRepository.findByStartTimeBetween(startDate,endDate);
         return shows.stream()
                 .map(show->{
-                    List<ShowSeat>availableSeats=showSeatRepository.findByShowIdAndStatus(show.getId(),"AVAILABLE");
+                    List<ShowSeat>availableSeats=showSeatRepository.findByShowIdAndStatus(show.getId(), SeatStatus.valueOf("AVAILABLE"));
                     return mapToDto(show,availableSeats);
                 })
                 .collect(Collectors.toList());
@@ -135,7 +136,7 @@ public class ShowService {
                 .map(seat->{
                     ShowSeatDto seatDto=new ShowSeatDto();
                     seatDto.setId(seat.getId());
-                    seatDto.setStatus(seat.getStatus());
+                    seatDto.setStatus(String.valueOf(seat.getStatus()));
                     seatDto.setPrice(seat.getPrice());
 
                     SeatDto baseSeatDto=new SeatDto();

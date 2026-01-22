@@ -1,5 +1,6 @@
 package com.Vishal.BookMyShow.model;
 
+import com.Vishal.BookMyShow.model.enums.BookingStatus;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -35,8 +36,9 @@ public class Booking {
 
 
 
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private String status;   //confirmed,cancel aur pending
+    private BookingStatus status;  //confirmed,cancel aur pending
 
     @Column(nullable = false)
     private Double totalAmount;

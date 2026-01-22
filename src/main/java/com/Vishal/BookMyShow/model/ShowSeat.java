@@ -1,5 +1,6 @@
 package com.Vishal.BookMyShow.model;
 
+import com.Vishal.BookMyShow.model.enums.SeatStatus;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -24,8 +25,10 @@ public class ShowSeat {
     @JoinColumn(name="seat_id",nullable = false)
     private Seat seat;
 
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private String status;
+    private SeatStatus status;
+
 
     @Column(nullable = false)
     private Double price;

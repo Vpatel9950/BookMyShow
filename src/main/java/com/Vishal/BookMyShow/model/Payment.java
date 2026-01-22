@@ -1,5 +1,6 @@
 package com.Vishal.BookMyShow.model;
 
+import com.Vishal.BookMyShow.model.enums.PaymentStatus;
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -29,8 +30,10 @@ public class Payment {
     @Column(nullable = false)
     private String paymentMethod;
 
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private String status; //success,failed,pending
+    private PaymentStatus status;
+
 
     @OneToOne(mappedBy = "payment")
     private Booking booking;
