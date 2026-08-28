@@ -42,6 +42,22 @@ public class TheaterService {
                 .collect(Collectors.toList());
     }
 
+    public TheaterDto updateTheater(Long id, TheaterDto theaterDto) {
+        Theater theater = theaterRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Theater Not found through this Id: " + id));
+        theater.setName(theaterDto.getName());
+        theater.setAddress(theaterDto.getAddress());
+        theater.setCity(theaterDto.getCity());
+        theater.setTotalScreens(theaterDto.getTotalScreens());
+        return mapToDto(theaterRepository.save(theater));
+    }
+
+    public void deleteTheater(Long id) {
+        Theater theater = theaterRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Theater Not found through this Id: " + id));
+        theaterRepository.delete(theater);
+    }
+
     private TheaterDto mapToDto(Theater theater) {
         TheaterDto theaterDto=new TheaterDto();
         theaterDto.setId(theater.getId());

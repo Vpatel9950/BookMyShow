@@ -2,16 +2,15 @@ package com.Vishal.BookMyShow.model;
 
 import com.Vishal.BookMyShow.model.enums.BookingStatus;
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 import java.time.LocalDateTime;
 import java.util.List;
 
 @Entity
-@Table(name="bookings")
-@Data
+@Table(name = "bookings")
+@Getter
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
 public class Booking {
@@ -20,33 +19,33 @@ public class Booking {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false,unique = true)
+    @Column(nullable = false, unique = true)
     private String bookingNumber;
 
     @Column(nullable = false)
     private LocalDateTime bookingTime;
 
     @ManyToOne
-    @JoinColumn(name="user_id",nullable = false)
+    @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
     @ManyToOne
-    @JoinColumn(name="show_id",nullable = false)
+    @JoinColumn(name = "show_id", nullable = false)
     private Show show;
 
-
-
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    private BookingStatus status;  //confirmed,cancel aur pending
+    private BookingStatus status; // PENDING, CONFIRMED, CANCELLED
 
     @Column(nullable = false)
     private Double totalAmount;
 
-    @OneToMany(mappedBy = "booking",cascade=CascadeType.ALL)
+    @OneToMany(mappedBy = "booking", cascade = CascadeType.ALL)
     private List<ShowSeat> showSeats;
 
     @OneToOne(cascade = CascadeType.ALL)
-    @JoinColumn(name="payment_id")
+    @JoinColumn(name = "payment_id")
     private Payment payment;
+
+    // 🔥 NEW (for seat lock expiry)
+    private LocalDateTime lockedAt;
 }

@@ -8,7 +8,9 @@ import org.springframework.web.context.request.WebRequest;
 
 import java.util.Date;
 
-@ControllerAdvice
+import org.springframework.web.bind.annotation.RestControllerAdvice;
+
+@RestControllerAdvice
 public class GlobalExceptionHandler {
 
     @ExceptionHandler(ResourceNotFoundException.class)
@@ -25,6 +27,18 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(SeatUnavailableException.class)
     public ResponseEntity<?> seatUnavailableException(SeatUnavailableException ex, WebRequest request){
+        ErrorResponse errorDetails=new ErrorResponse(
+                new Date(),
+                HttpStatus.BAD_REQUEST.value(),
+                "Bad Request",
+                ex.getMessage(),
+                request.getDescription(false));
+
+        return new ResponseEntity<>(errorDetails,HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(RuntimeException.class)
+    public ResponseEntity<?> runtimeException(RuntimeException ex, WebRequest request){
         ErrorResponse errorDetails=new ErrorResponse(
                 new Date(),
                 HttpStatus.BAD_REQUEST.value(),

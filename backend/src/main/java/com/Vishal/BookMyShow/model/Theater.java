@@ -16,13 +16,13 @@ public class Theater {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long Id;
+    private Long id;
 
     private String name;
     private String address;
     private String city;
     private Integer totalScreens;
 
-    @OneToMany(mappedBy = "theater",cascade = CascadeType.ALL)
+    @OneToMany(mappedBy = "theater", cascade = CascadeType.ALL)
     private List<Screen> screens;
 }

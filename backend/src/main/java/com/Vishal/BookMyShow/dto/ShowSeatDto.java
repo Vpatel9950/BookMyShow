@@ -10,7 +10,7 @@ import lombok.NoArgsConstructor;
 public class ShowSeatDto {
     private Long id;
     private SeatDto seat;
-    private String Status;
+    private String status;
     private Double price;
 
 }

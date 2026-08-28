@@ -23,21 +23,12 @@ import java.util.stream.Collectors;
 @Service
 public class BookingService {
 
-    @Autowired
-    private UserRepository userRepository;
+    @Autowired private UserRepository userRepository;
+    @Autowired private ShowRepository showRepository;
+    @Autowired private ShowSeatRepository showSeatRepository;
+    @Autowired private BookingRepository bookingRepository;
+    @Autowired private EmailService emailService;
 
-    @Autowired
-    private ShowRepository showRepository;
-
-    @Autowired
-    private ShowSeatRepository showSeatRepository;
-
-    @Autowired
-    private BookingRepository bookingRepository;
-
-    // =========================
-    // CREATE BOOKING
-    // =========================
     @Transactional
     public BookingDto createBooking(BookingRequestDto bookingRequest) {
 
@@ -50,7 +41,10 @@ public class BookingService {
         List<ShowSeat> selectedSeats =
                 showSeatRepository.findAllById(bookingRequest.getSeatIds());
 
-        // 1️⃣ Check availability & LOCK seats
+        if (selectedSeats.isEmpty()) {
+            throw new RuntimeException("No seats selected");
+        }
+
         for (ShowSeat seat : selectedSeats) {
             if (seat.getStatus() != SeatStatus.AVAILABLE) {
                 throw new SeatUnavailableException(
@@ -61,12 +55,10 @@ public class BookingService {
         }
         showSeatRepository.saveAll(selectedSeats);
 
-        // 2️⃣ Calculate total amount
         Double totalAmount = selectedSeats.stream()
                 .mapToDouble(ShowSeat::getPrice)
                 .sum();
 
-        // 3️⃣ Create payment (INITIATED)
         Payment payment = new Payment();
         payment.setAmount(totalAmount);
         payment.setPaymentTime(LocalDateTime.now());
@@ -74,7 +66,6 @@ public class BookingService {
         payment.setStatus(PaymentStatus.INITIATED);
         payment.setTransactionId(UUID.randomUUID().toString());
 
-        // 4️⃣ Create booking (PENDING)
         Booking booking = new Booking();
         booking.setUser(user);
         booking.setShow(show);
@@ -83,47 +74,62 @@ public class BookingService {
         booking.setTotalAmount(totalAmount);
         booking.setBookingNumber(UUID.randomUUID().toString());
         booking.setPayment(payment);
+        booking.setLockedAt(LocalDateTime.now());
 
         Booking savedBooking = bookingRepository.save(booking);
 
-        // 5️⃣ Attach booking to seats
         selectedSeats.forEach(seat -> seat.setBooking(savedBooking));
         showSeatRepository.saveAll(selectedSeats);
 
         return mapToBookingDto(savedBooking, selectedSeats);
     }
 
-    // =========================
-    // GET BOOKING BY ID
-    // =========================
-    public BookingDto getBookingById(Long id) {
+    @Transactional
+    public BookingDto confirmBooking(Long bookingId) {
 
+        Booking booking = bookingRepository.findById(bookingId)
+                .orElseThrow(() -> new ResourceNotFoundException("Booking Not Found"));
+
+        List<ShowSeat> seats = showSeatRepository.findByBookingId(bookingId);
+
+        seats.forEach(seat -> seat.setStatus(SeatStatus.BOOKED));
+
+        booking.setStatus(BookingStatus.CONFIRMED);
+
+        if (booking.getPayment() != null) {
+            booking.getPayment().setStatus(PaymentStatus.SUCCESS);
+        }
+
+        bookingRepository.save(booking);
+        showSeatRepository.saveAll(seats);
+
+        // 📩 Send booking confirmation email
+        try {
+            emailService.sendBookingConfirmationEmail(booking, seats);
+        } catch (Exception e) {
+            System.err.println("⚠️ Could not send email confirmation: " + e.getMessage());
+        }
+
+        return mapToBookingDto(booking, seats);
+    }
+
+    public BookingDto getBookingById(Long id) {
         Booking booking = bookingRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Booking Not Found"));
 
         List<ShowSeat> seats = showSeatRepository.findByBookingId(booking.getId());
-
         return mapToBookingDto(booking, seats);
     }
 
-    // =========================
-    // GET BOOKING BY NUMBER
-    // =========================
     public BookingDto getBookingByNumber(String bookingNumber) {
-
         Booking booking = bookingRepository.findByBookingNumber(bookingNumber)
                 .orElseThrow(() -> new ResourceNotFoundException("Booking Not Found"));
 
         List<ShowSeat> seats = showSeatRepository.findByBookingId(booking.getId());
-
         return mapToBookingDto(booking, seats);
     }
 
-    // =========================
-    // GET BOOKINGS BY USER
-    // =========================
     public List<BookingDto> getBookingByUserId(Long userId) {
-
         List<Booking> bookings = bookingRepository.findByUserId(userId);
 
         return bookings.stream()
@@ -135,14 +141,25 @@ public class BookingService {
                 .collect(Collectors.toList());
     }
 
-    // =========================
-    // CANCEL BOOKING
-    // =========================
+    public List<BookingDto> getAllBookings() {
+        List<Booking> bookings = bookingRepository.findAll();
+        return bookings.stream()
+                .map(booking -> {
+                    List<ShowSeat> seats = showSeatRepository.findByBookingId(booking.getId());
+                    return mapToBookingDto(booking, seats);
+                })
+                .collect(Collectors.toList());
+    }
+
     @Transactional
     public BookingDto cancelBooking(Long id) {
 
         Booking booking = bookingRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Booking Not Found"));
+
+        if (booking.getStatus() == BookingStatus.CANCELLED) {
+            throw new RuntimeException("Booking already cancelled");
+        }
 
         booking.setStatus(BookingStatus.CANCELLED);
 
@@ -164,11 +181,7 @@ public class BookingService {
         return mapToBookingDto(updatedBooking, seats);
     }
 
-    // =========================
-    // DTO MAPPING
-    // =========================
     private BookingDto mapToBookingDto(Booking booking, List<ShowSeat> seats) {
-
         BookingDto bookingDto = new BookingDto();
         bookingDto.setId(booking.getId());
         bookingDto.setBookingNumber(booking.getBookingNumber());
@@ -176,88 +189,83 @@ public class BookingService {
         bookingDto.setStatus(String.valueOf(booking.getStatus()));
         bookingDto.setTotalAmount(booking.getTotalAmount());
 
-        // User
-        UserDto userDto = new UserDto();
-        userDto.setId(booking.getUser().getId());
-        userDto.setName(booking.getUser().getName());
-        userDto.setEmail(booking.getUser().getEmail());
-        userDto.setPhoneNumber(booking.getUser().getPhoneNumber());
-        bookingDto.setUser(userDto);
+        if (booking.getUser() != null) {
+            UserDto userDto = new UserDto();
+            userDto.setId(booking.getUser().getId());
+            userDto.setName(booking.getUser().getName());
+            userDto.setEmail(booking.getUser().getEmail());
+            userDto.setPhoneNumber(booking.getUser().getPhoneNumber());
+            bookingDto.setUser(userDto);
+        }
 
-        // Show
-        bookingDto.setShow(getShowDto(booking));
+        if (booking.getShow() != null) {
+            Show show = booking.getShow();
+            ShowDto showDto = new ShowDto();
+            showDto.setId(show.getId());
+            showDto.setStartTime(show.getStartTime());
+            showDto.setEndTime(show.getEndTime());
 
-        // Seats
-        List<ShowSeatDto> seatDtos = seats.stream()
-                .map(seat -> {
-                    ShowSeatDto seatDto = new ShowSeatDto();
-                    seatDto.setId(seat.getId());
-                    seatDto.setStatus(String.valueOf(seat.getStatus()));
-                    seatDto.setPrice(seat.getPrice());
+            Movie movie = show.getMovie();
+            if (movie != null) {
+                showDto.setMovie(new MovieDto(
+                        movie.getId(),
+                        movie.getTitle(),
+                        movie.getDescription(),
+                        movie.getLanguage(),
+                        movie.getGenre(),
+                        movie.getDurationMins(),
+                        movie.getReleaseDate(),
+                        movie.getPosterUrl()
+                ));
+            }
 
-                    SeatDto baseSeatDto = new SeatDto();
-                    baseSeatDto.setId(seat.getSeat().getId());
-                    baseSeatDto.setSeatNumber(seat.getSeat().getSeatNumber());
-                    baseSeatDto.setSeatType(seat.getSeat().getSeatType());
-                    baseSeatDto.setBasePrice(seat.getSeat().getBasePrice());
+            Screen screen = show.getScreen();
+            if (screen != null) {
+                TheaterDto theaterDto = new TheaterDto(
+                        screen.getTheater().getId(),
+                        screen.getTheater().getName(),
+                        screen.getTheater().getAddress(),
+                        screen.getTheater().getCity(),
+                        screen.getTheater().getTotalScreens()
+                );
+                showDto.setScreen(new ScreenDto(
+                        screen.getId(),
+                        screen.getName(),
+                        screen.getTotalSeats(),
+                        theaterDto
+                ));
+            }
+            bookingDto.setShow(showDto);
+        }
 
-                    seatDto.setSeat(baseSeatDto);
-                    return seatDto;
-                })
-                .collect(Collectors.toList());
+        if (seats != null) {
+            bookingDto.setSeats(seats.stream().map(seat -> {
+                ShowSeatDto seatDto = new ShowSeatDto();
+                seatDto.setId(seat.getId());
+                seatDto.setStatus(String.valueOf(seat.getStatus()));
+                seatDto.setPrice(seat.getPrice());
+                SeatDto baseSeatDto = new SeatDto();
+                baseSeatDto.setId(seat.getSeat().getId());
+                baseSeatDto.setSeatNumber(seat.getSeat().getSeatNumber());
+                baseSeatDto.setSeatType(seat.getSeat().getSeatType());
+                baseSeatDto.setBasePrice(seat.getSeat().getBasePrice());
+                seatDto.setSeat(baseSeatDto);
+                return seatDto;
+            }).collect(Collectors.toList()));
+        }
 
-        bookingDto.setSeats(seatDtos);
-
-        // Payment
         if (booking.getPayment() != null) {
+            Payment payment = booking.getPayment();
             PaymentDto paymentDto = new PaymentDto();
-            paymentDto.setId(booking.getPayment().getId());
-            paymentDto.setAmount(booking.getPayment().getAmount());
-            paymentDto.setPaymentMethod(booking.getPayment().getPaymentMethod());
-            paymentDto.setPaymentTime(booking.getPayment().getPaymentTime());
-            paymentDto.setStatus(String.valueOf(booking.getPayment().getStatus()));
-            paymentDto.setTransactionId(booking.getPayment().getTransactionId());
+            paymentDto.setId(payment.getId());
+            paymentDto.setTransactionId(payment.getTransactionId());
+            paymentDto.setAmount(payment.getAmount());
+            paymentDto.setPaymentTime(payment.getPaymentTime());
+            paymentDto.setPaymentMethod(payment.getPaymentMethod());
+            paymentDto.setStatus(String.valueOf(payment.getStatus()));
             bookingDto.setPayment(paymentDto);
         }
 
         return bookingDto;
-    }
-
-    private static ShowDto getShowDto(Booking booking) {
-
-        ShowDto showDto = new ShowDto();
-        showDto.setId(booking.getShow().getId());
-        showDto.setStartTime(booking.getShow().getStartTime());
-        showDto.setEndTime(booking.getShow().getEndTime());
-
-        Movie movie = booking.getShow().getMovie();
-        showDto.setMovie(new MovieDto(
-                movie.getId(),
-                movie.getTitle(),
-                movie.getDescription(),
-                movie.getLanguage(),
-                movie.getGenre(),
-                movie.getDurationMins(),
-                movie.getReleaseDate(),
-                movie.getPosterUrl()
-        ));
-
-        Screen screen = booking.getShow().getScreen();
-        Theater theater = screen.getTheater();
-
-        showDto.setScreen(new ScreenDto(
-                screen.getId(),
-                screen.getName(),
-                screen.getTotalSeats(),
-                new TheaterDto(
-                        theater.getId(),
-                        theater.getName(),
-                        theater.getAddress(),
-                        theater.getCity(),
-                        theater.getTotalScreens()
-                )
-        ));
-
-        return showDto;
     }
 }

@@ -14,7 +14,6 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/bookings")
 @CrossOrigin(origins = "*")
-
 public class BookingController {
 
     @Autowired
@@ -27,6 +26,11 @@ public class BookingController {
                 bookingService.createBooking(bookingRequest),
                 HttpStatus.CREATED
         );
+    }
+
+    @GetMapping
+    public ResponseEntity<List<BookingDto>> getAllBookings() {
+        return ResponseEntity.ok(bookingService.getAllBookings());
     }
 
     @GetMapping("/{id}")
@@ -56,5 +60,9 @@ public class BookingController {
                 bookingService.cancelBooking(id)
         );
     }
-}
 
+    @PostMapping("/{id}/confirm")
+    public ResponseEntity<BookingDto> confirmBooking(@PathVariable Long id) {
+        return ResponseEntity.ok(bookingService.confirmBooking(id));
+    }
+}
